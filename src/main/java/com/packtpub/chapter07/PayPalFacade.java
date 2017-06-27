@@ -1,8 +1,6 @@
 package com.packtpub.chapter07;
 
-public class PayPalFacade {
+public interface PayPalFacade {
 
-    public void sendAdvice(PaymentAdviceDto paymentAdviceDto){
-
-    }
+    public void sendAdvice(PaymentAdviceDto paymentAdviceDto);
 }
