@@ -1,5 +1,6 @@
 package com.packtpub.chapter07;
 
+import com.sun.org.apache.xpath.internal.Arg;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -8,13 +9,12 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.mockito.internal.verification.Times;
 import org.mockito.runners.MockitoJUnitRunner;
-
 import java.util.ArrayList;
 import java.util.List;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyString;
+import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -132,6 +132,72 @@ public class ReconciliationJobTest {
         assertTrue(70.00 == calculatedAdvice.getValue().getAmount());
     }
 
+    @Test
+    public void calculates_payable_with_multiple_Transaction() throws Exception {
+        List<TransactionDto> transactionList = new ArrayList<TransactionDto>();
+
+        String johnsDeveloperId = "john001";
+        String johnsPayPalId = "john@gmail.com";
+        double johnsGameFee = 200;
+
+        transactionList.add(createTxDto(johnsDeveloperId, johnsPayPalId, johnsGameFee));
+
+        String davesDeveloperId = "dave888";
+        String davesPayPalId = "IamDave009@yahoo.co.uk";
+        int davesGameFee = 150;
+
+        transactionList.add(createTxDto(davesDeveloperId, davesPayPalId, davesGameFee));
+
+        when(financialTransactionDAO.retrieveUnSettledTransactions()).thenReturn(transactionList);
+
+        when(membershipDAO.getStatusFor(eq(johnsDeveloperId))).thenReturn(memberShip(.15));
+
+        when(membershipDAO.getStatusFor(eq(davesDeveloperId))).thenReturn(memberShip(.10));
+
+        assertEquals(2, job.reconcile());
+
+        ArgumentCaptor<PaymentAdviceDto> calculatedAdvice = ArgumentCaptor.forClass(PaymentAdviceDto.class);
+        verify(payPalFacade, new Times(2)).sendAdvice(calculatedAdvice.capture());
+
+        assertTrue(170.00 == calculatedAdvice.getAllValues().get(0).getAmount());
+
+        assertTrue(135.00 == calculatedAdvice.getAllValues().get(1).getAmount());
+
+    }
+
+    //@Test
+    //private void updates_Transactions_and_Sends_Emails(){
+    //    //TODO
+    //}
+
+    @Test
+    public void calculates_payable_with_multiple_Transaction_For_same_developer() throws Exception {
+        List<TransactionDto> janetsGameFees = new ArrayList<TransactionDto>();
+
+        String janetsDeveloperId = "janet12567";
+        String janetsPayPalId = "JanetTheJUnitGuru@gmail.com";
+        double fishPondGameFee = 200;
+        double ticTacToeGameFee = 100;
+
+        janetsGameFees.add(createTxDto(janetsDeveloperId, janetsPayPalId, fishPondGameFee));
+        janetsGameFees.add(createTxDto(janetsDeveloperId, janetsPayPalId, ticTacToeGameFee));
+
+        when(financialTransactionDAO.retrieveUnSettledTransactions()).thenReturn(janetsGameFees);
+
+        assertEquals(2, job.reconcile2());
+
+        ArgumentCaptor<PaymentAdviceDto> calculatedAdvice = ArgumentCaptor.forClass(PaymentAdviceDto.class);
+
+        verify(payPalFacade, new Times(1)).sendAdvice(calculatedAdvice.capture());
+
+        assertTrue(210.00  == calculatedAdvice.getValue().getAmount());
+    }
+
+    private MembershipStatusDto memberShip(double percent){
+        MembershipStatusDto membership = new MembershipStatusDto();
+        membership.setDeductable(percent);
+        return membership;
+    }
 
     private TransactionDto createTxDto(String developerId, String payPalId, double gamePrice) {
         TransactionDto transactionDto = new TransactionDto();
